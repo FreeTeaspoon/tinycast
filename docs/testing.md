@@ -514,6 +514,15 @@ prefs, caches, TCC grants and login item, so this cannot disturb an installed co
 - ⌃X deletes the selected entry and ⌃⇧X clears the history, from the list and from an open ⌘K menu
 - ⌃⇧X asks first, through Tinycast's own dialog; Cancel and Esc both leave every entry in place
 - ↵ pastes into the previous app; ⌥↵ pastes without closing the palette
+- Click an entry, then Cmd-click others: the highlighted rows show their paste order; Cmd-click
+  removes one, and selecting it again puts it last. Shift-click selects a visible range, and
+  Cmd-Shift-click adds a range. Shift-Up/Down extends from the same anchor.
+- ↵ pastes selected text with newlines, or images/files as separate pasteboard items; ⌘↵ copies
+  the same group. Test multiple attachments in a receiving app that supports them.
+- A missing file or image in a group reports an error, keeps the palette open and leaves the
+  clipboard untouched. Plain-text paste of file paths still works after the files are removed.
+- Right-click a selected row: Actions keeps the group and offers its batch actions. ⌃X deletes
+  the group. A plain click, an arrow, a search/filter change or reopening clears the group.
 - ⌃⌘↵ pastes as plain text: a text entry as typed, a file entry as its path rather than the file
 - Default action ▸ Paste as Plain Text: ↵ pastes plain, ⌃⌘↵ pastes, ⌘↵ still copies; an image
   entry's ↵ still pastes the image and its ⌘K menu has no plain row

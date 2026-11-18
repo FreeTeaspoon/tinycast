@@ -57,6 +57,23 @@ Pasting needs the [Accessibility permission](/docs/permissions).
 You can also **drag any row** into another app. Dragging always copies, so the entry stays in your
 history. When you drop it, the palette closes, the same as after a paste.
 
+## Select several entries
+
+Click an entry, then Cmd-click more entries to add them in the order you want to paste them.
+Cmd-click a selected entry to remove it. Shift-click selects a range; Cmd-Shift-click adds a range
+to your selection. You can also use Shift-Up/Down to extend a range with the keyboard. The numbers
+beside selected entries show their paste order.
+
+Press Return to run your configured default action on the selection. Copy, Paste as Plain Text and
+Paste and Keep Window Open work on the selection too. Text entries paste together with a line break
+between them. Images and files are offered as separate attachments in one paste; the receiving app
+determines which types and how many attachments it accepts. A selection containing images has no
+plain-text action.
+
+A plain click or arrow key returns to one selected entry. Changing the search or type filter,
+switching screens or closing the palette clears the selection. If a selected file or image is
+missing, Tinycast reports it and leaves your clipboard unchanged.
+
 ## Paste Sequentially
 
 Give **Paste Sequentially** a shortcut in **Settings → Clipboard** to paste a series of copies one

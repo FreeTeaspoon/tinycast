@@ -26,6 +26,7 @@ struct PaletteNavigationTests {
     }
 
     static func main() {
+        clipboardSelectionResetsWithItsScreen()
         openingDisarmed()
         deliberateMovementArms()
         scrollingDisarms()
@@ -251,6 +252,26 @@ struct PaletteNavigationTests {
 
         print("\(passes) passed, \(failures) failed")
         if failures > 0 { exit(1) }
+    }
+
+    static func clipboardSelectionResetsWithItsScreen() {
+        let vm = PaletteState()
+        vm.prepare(mode: .clipboard)
+        let ids = [UUID(), UUID()]
+        let changes: [(String, () -> Void)] = [
+            ("query", { vm.query = "new" }),
+            ("filter", { vm.clipboardFilter = .image }),
+            ("mode", { vm.mode = .launcher }),
+            ("hide", { vm.noteVisible(false) }),
+            ("fresh clipboard", { vm.prepare(mode: .clipboard) })
+        ]
+        for (name, change) in changes {
+            vm.prepare(mode: .clipboard)
+            vm.clipboardSelection.select(ids[0], in: ids, focusedID: ids[1], toggling: true)
+            expect(vm.clipboardSelection.ids.count == 2, "fixture selects two clips")
+            change()
+            expect(vm.clipboardSelection.anchor == nil, "\(name) clears the clipboard group")
+        }
     }
 
     static let rest = CGPoint(x: 400, y: 300)

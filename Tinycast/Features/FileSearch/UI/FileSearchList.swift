@@ -26,7 +26,7 @@ struct FileSearchList: View {
                             .selectionFrame(result.id == selectedID)
                             .contentShape(Rectangle())
                             .onRowClick(
-                                select: { onSelect(result) }, activate: { onActivate(result) },
+                                select: { _ in onSelect(result) }, activate: { onActivate(result) },
                                 drag: result.rowDrag(dropped: onDropped)
                             )
                             .onRightClick { onActions(result) }

@@ -215,6 +215,7 @@ run ClipboardThumbnailTests Tinycast/Features/Clipboard/Model/ClipboardStore.swi
 # `Q` is the URL detector a drag payload builds its link with, rather than a second one.
 Q=Tinycast/Features/Quicklinks/Model/QuicklinkDestination.swift
 run ClipboardSearchTests   Tinycast/Features/Clipboard/Model/*.swift Tinycast/Platform/Images/ImageDerivative.swift $Q
+run ClipboardSelectionTests Tinycast/Features/Clipboard/Model/ClipboardSelection.swift
 run PasteSequenceTests     Tinycast/Features/Clipboard/Model/*.swift Tinycast/Platform/Images/ImageDerivative.swift $Q
 run ClipboardTextTests     Tinycast/Features/Clipboard/Model/*.swift Tinycast/Platform/Images/ImageDerivative.swift $Q \
                            Tinycast/Features/Clipboard/Service/ClipboardTextExtractor.swift \
@@ -301,6 +302,7 @@ run FormInputTests         Tinycast/Platform/Appearance.swift \
                            Tinycast/DesignSystem/FormTextArea.swift \
                            Tinycast/DesignSystem/IconTint.swift
 run ScrollRevealTests      Tinycast/DesignSystem/Scrolling/SelectionReveal.swift
+run RowClickTests          Tinycast/DesignSystem/Interaction/RowClick.swift
 run RedactionTests         Tinycast/DesignSystem/RedactedPlaceholder.swift
 run KeyboardFocusTests     Tinycast/DesignSystem/Interaction/KeyboardFocus.swift
 run CommandEscapeTapTests  Tinycast/Palette/CommandEscapeTap.swift
@@ -312,6 +314,7 @@ run PaletteEscapeTests     Tinycast/Palette/PaletteMode.swift \
                            Tinycast/Features/Quicklinks/Model/QuicklinkDestination.swift \
                            Tinycast/Features/CustomCommands/Model/CustomCommand.swift
 run PaletteNavigationTests Tinycast/Palette/PaletteState.swift \
+                           Tinycast/Features/Clipboard/Model/ClipboardSelection.swift \
                            Tinycast/Palette/PaletteMode.swift \
                            Tinycast/Palette/HoverArming.swift \
                            Tinycast/Features/Emoji/Model/EmojiCatalog.swift \

@@ -19,6 +19,9 @@
   plain-text default pastes it as it is, and ⌃⌘↵ on it falls back to ⌘↵ as on every other screen.
 - **Clipboard writes stamp a private `internalType` marker** so the poller skips Tinycast's own writes.
   If the writer and the poller ever disagree, the app re-captures its own pastes in a loop.
+- **A multi-selection uses stable IDs in paste order.** Search, filter, screen and visibility changes
+  clear it. A batch validates every entry before replacing the pasteboard, stamps every item and
+  sends one paste keystroke; a missing file or image leaves the clipboard untouched.
 - **Edit Entry rewrites a text entry in place and never adds one.** The id, pin and source app
   stay; saving then copies it as Copy to Clipboard does, marker included, so the poller does not
   record the edit a second time.
@@ -522,6 +525,34 @@ drag leaves it up and animates back to the row it came from, so a drag that achi
 so. The session outliving the panel is safe for the reason the player teardown above is delicate:
 `orderOut` leaves the SwiftUI tree mounted, and the pasteboard holds the payload from the moment the
 session begins.
+
+## Multi-selection
+
+Cmd-click toggles a row, appending a newly selected entry to the paste order. The current focused row
+is the initial selection. Shift-click selects a range in visible list order, including both ends;
+Cmd-Shift-click adds that range to the existing selection. Shift-Up/Down extends the range from the
+same anchor. A plain click or arrow key returns to one selected row. Selected rows share the existing
+selection fill and show their paste-order number when more than one is selected.
+
+`ClipboardSelection` owns the ordered IDs and range anchor on `PaletteState`. The focused row remains
+the preview and scroll target, independently of the selected group. Resolving IDs against current
+results drops deleted entries without accidentally selecting whatever took their indices. Changing
+the query or filter, leaving the screen, hiding the palette or opening it fresh clears the group.
+
+Return, Cmd-Return and Control-Cmd-Return resolve through `ClipboardDefaultAction` for the entire
+selection. Plain text is available only if every entry has it; a plain-text default falls back to
+normal paste if any selected entry is an image. Option-Return pastes the group without closing or
+promoting. The Actions menu offers the same batch actions plus Delete Entries; single-entry actions
+such as Edit Entry, Pin Entry and Copy Text apply only to a single selection. A right-click within
+the group preserves it, while one outside it starts a new selection. Dragging still exports one row.
+
+`Paster.write(_:store:plainText:to:)` prepares the whole batch before clearing the pasteboard. Text
+entries become one newline-separated string. Image and file selections use one `NSPasteboardItem`
+per entry with the same representations as single-item paste, including each image's PNG and file
+URL. Mixed selections retain each entry's representation and order. Every item carries the internal
+marker. Normal paste and copy promote entries in reverse selection order so the first selected entry
+ends up newest; paste-in-place leaves history unchanged. Receiving apps decide which representations
+they accept and whether they consume every attachment.
 
 ## Paste Sequentially
 
