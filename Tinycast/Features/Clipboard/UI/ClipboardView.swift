@@ -6,9 +6,10 @@ struct ClipboardList: View {
     @Environment(\.metrics) private var metrics
     let results: [ClipboardItem]
     let selectedID: ClipboardItem.ID?
+    let selectedIDs: [ClipboardItem.ID]
     /// Changes only when the list should scroll, so mouse selection never yanks it.
     let scroll: ScrollIntent
-    let onSelect: (ClipboardItem) -> Void
+    let onSelect: (ClipboardItem, NSEvent.ModifierFlags) -> Void
     let onActivate: () -> Void
     let onActions: (ClipboardItem) -> Void
     /// Nil when the entry has nothing left to hand over, which is reported rather than dragged.
@@ -61,7 +62,9 @@ struct ClipboardList: View {
                             SectionHeader(title: title, isFirst: row.id == rows.first?.id)
                         case .item(let item, let slot):
                             ClipboardRow(
-                                item: item, selected: item.id == selectedID,
+                                item: item, selected: selectedIDs.contains(item.id),
+                                selectionOrder: selectedIDs.count > 1
+                                    ? selectedIDs.firstIndex(of: item.id).map { $0 + 1 } : nil,
                                 imageURL: store.imageURL(for: item),
                                 ownsImage: store.ownsImage(of: item), slot: slot
                             )
@@ -70,14 +73,17 @@ struct ClipboardList: View {
                             // The light catcher: `.contextMenu` stalls.
                             .onRightClick { onActions(item) }
                             .onRowClick(
-                                select: { onSelect(item) },
-                                activate: {
-                                    onSelect(item)
-                                    onActivate()
-                                },
+                                select: { onSelect(item, $0) },
+                                activate: onActivate,
                                 drag: RowDrag(
-                                    item: { onDragPayload(item)?.dragItem }, dropped: onDropped)
+                                    item: { onDragPayload(item)?.dragItem }, dropped: onDropped),
+                                selectionModifiers: [.command, .shift]
                             )
+                            .accessibilityElement(children: .combine)
+                            .accessibilityAddTraits(selectedIDs.contains(item.id) ? .isSelected : [])
+                            .accessibilityAction(named: Text("Toggle Selection")) {
+                                onSelect(item, .command)
+                            }
                         }
                     }
                 }
@@ -129,6 +135,7 @@ private struct ClipboardRow: View {
     @Environment(\.metrics) private var metrics
     let item: ClipboardItem
     let selected: Bool
+    let selectionOrder: Int?
     let imageURL: URL?
     let ownsImage: Bool
     /// This row's ⌘-digit, or nil when it is not among the first ten visible pins.
@@ -153,6 +160,12 @@ private struct ClipboardRow: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer(minLength: 0)
+            if let selectionOrder {
+                Text(verbatim: selectionOrder.formatted())
+                    .font(metrics.typography.menuRow)
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
             if let slot, palette.commandHeld {
                 HStack(spacing: metrics.spacing.xxs) {
                     KeyCapChip(text: "⌘", style: .outline)

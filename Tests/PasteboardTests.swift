@@ -24,6 +24,11 @@ struct PasteboardTests {
         fileEntriesWriteBackAsFiles()
         aVanishedFileWritesNothing()
         imageEntriesWriteBackWithTheirFile()
+        selectedTextIsJoinedInPasteOrder()
+        selectedImagesAndFilesKeepTheirRepresentations()
+        unavailableBatchesLeaveTheClipboardAlone()
+        plainTextBatchesUsePathsAndRejectImages()
+        copyingPromotesInSelectionOrder()
 
         print("\(passes)/\(passes + failures) passed")
         if failures > 0 { exit(1) }
@@ -361,6 +366,119 @@ struct PasteboardTests {
     }
 
     // MARK: - Harness
+
+    static func selectedTextIsJoinedInPasteOrder() {
+        withScratch { dir in
+            let store = ClipboardStore(directory: dir)
+            let first = ClipboardItem(text: "first\nline", sourceBundleID: nil)
+            let second = ClipboardItem(text: "second", sourceBundleID: nil)
+            let pb = board()
+            expect(Paster.write([second, first], store: store, to: pb), "selected text writes")
+            expect(pb.string(forType: .string) == "second\nfirst\nline", "text uses selection order")
+            expect(pb.pasteboardItems?.count == 1, "text is one paste for ordinary text fields")
+            expect(
+                pb.types?.contains(ClipboardManager.internalType) == true,
+                "combined text cannot be recaptured")
+        }
+    }
+
+    static func selectedImagesAndFilesKeepTheirRepresentations() {
+        withScratch { dir in
+            let store = ClipboardStore(directory: dir.appendingPathComponent("store"))
+            let urls = ["second.png", "first.png", "report.pdf"].map { dir.appendingPathComponent($0) }
+            for url in urls { try? Data(url.lastPathComponent.utf8).write(to: url) }
+            let clips = [
+                ClipboardItem(imagePath: urls[0].path, sourceBundleID: nil),
+                ClipboardItem(imagePath: urls[1].path, sourceBundleID: nil),
+                ClipboardItem(filePath: urls[2].path, sourceBundleID: nil)
+            ]
+            let pb = board()
+            expect(Paster.write(clips, store: store, to: pb), "multiple images and files write together")
+            let read = pb.readObjects(forClasses: [NSURL.self]) as? [URL]
+            expect(read == urls, "file URLs preserve the selection order")
+            let objects = pb.pasteboardItems ?? []
+            expect(objects.count == 3, "each attachment remains a separate pasteboard item")
+            expect(
+                objects.allSatisfy { $0.types.contains(ClipboardManager.internalType) },
+                "every attachment is marked as internal")
+            expect(
+                objects.first?.data(forType: .png) == Data("second.png".utf8),
+                "image bytes remain available beside their file URL")
+            expect(objects.first?.string(forType: .string) == nil, "images never claim to be text")
+            let text = ClipboardItem(text: "caption", sourceBundleID: nil)
+            expect(Paster.write([text] + clips, store: store, to: pb), "mixed selections write")
+            expect(pb.pasteboardItems?.first?.string(forType: .string) == "caption", "mixed text keeps its place")
+        }
+    }
+
+    static func unavailableBatchesLeaveTheClipboardAlone() {
+        withScratch { dir in
+            let store = ClipboardStore(directory: dir)
+            store.addText("history", sourceBundleID: nil)
+            let before = store.items
+            let text = ClipboardItem(text: "available", sourceBundleID: nil)
+            let missing = [
+                ClipboardItem(imagePath: dir.appendingPathComponent("gone.png").path, sourceBundleID: nil),
+                ClipboardItem(filePath: dir.appendingPathComponent("gone.pdf").path, sourceBundleID: nil)
+            ]
+            for absent in missing {
+                for items in [[text, absent], [absent, text], []] {
+                    let pb = board()
+                    pb.setString("untouched", forType: .string)
+                    let count = pb.changeCount
+                    expect(!Paster.write(items, store: store, to: pb), "a missing or empty batch refuses")
+                    expect(pb.changeCount == count, "refusing a batch never clears the clipboard")
+                    expect(pb.string(forType: .string) == "untouched", "the previous content survives")
+                    expect(store.items == before, "preparing a batch never mutates history")
+                }
+            }
+        }
+    }
+
+    static func plainTextBatchesUsePathsAndRejectImages() {
+        withScratch { dir in
+            let store = ClipboardStore(directory: dir)
+            let text = ClipboardItem(text: "caption", sourceBundleID: nil)
+            let file = ClipboardItem(filePath: "/missing/report.pdf", sourceBundleID: nil)
+            let image = ClipboardItem(imagePath: "/missing/shot.png", sourceBundleID: nil)
+            let pb = board()
+            expect(Paster.write([file, text], store: store, plainText: true, to: pb), "plain paths need no file")
+            expect(pb.string(forType: .string) == "/missing/report.pdf\ncaption", "plain text joins paths")
+            expect(pb.types?.contains(.fileURL) == false, "plain text offers no file representation")
+            let count = pb.changeCount
+            expect(!Paster.write([text, image], store: store, plainText: true, to: pb), "images have no plain text")
+            expect(pb.changeCount == count, "a rejected plain paste leaves the board alone")
+            expect(
+                ClipboardDefaultAction.pastePlainText.action(for: .return, on: [text, image]) == .paste,
+                "an image anywhere in the selection falls back to a normal paste")
+            expect(
+                ClipboardDefaultAction.paste.action(for: .controlCommand, on: [text, image]) == nil,
+                "the plain-text chord is unavailable for a selection containing images")
+            for action in ClipboardDefaultAction.allCases {
+                expect(action.action(for: .return, on: [text, file]) == action, "text groups respect the default")
+                expect(action.action(for: .return, on: []) == nil, "empty groups have no default action")
+            }
+        }
+    }
+
+    static func copyingPromotesInSelectionOrder() {
+        withScratch { dir in
+            let store = ClipboardStore(directory: dir)
+            for text in ["oldest", "middle", "newest"] { store.addText(text, sourceBundleID: nil) }
+            let selected = [store.items[2], store.items[0]]
+            let pb = board()
+            expect(Paster.copy(selected, store: store, to: pb), "copying a group succeeds")
+            expect(
+                Array(store.items.prefix(2).map(\.id)) == selected.map(\.id),
+                "the first selected entry becomes newest after promotion")
+            let before = store.items
+            let missing = ClipboardItem(filePath: "/nowhere/\(UUID().uuidString)", sourceBundleID: nil)
+            let count = pb.changeCount
+            expect(!Paster.copy([selected[0], missing], store: store, to: pb), "copy rejects an incomplete batch")
+            expect(store.items == before, "a failed copy promotes nothing")
+            expect(pb.changeCount == count, "a failed copy preserves the clipboard too")
+        }
+    }
 
     static func board() -> NSPasteboard { NSPasteboard.withUniqueName() }
 

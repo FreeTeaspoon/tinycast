@@ -87,6 +87,52 @@ final class ClipboardCoordinator {
         }
     }
 
+    @discardableResult
+    func activate(_ items: [ClipboardItem], chord: ClipboardChord = .return) -> Bool {
+        guard let action = settings.clipboardDefaultAction.action(for: chord, on: items) else {
+            return false
+        }
+        perform(action, on: items)
+        return true
+    }
+
+    func perform(_ action: ClipboardDefaultAction, on items: [ClipboardItem]) {
+        guard let first = items.first else { return }
+        if items.count == 1 {
+            perform(action, on: first)
+            return
+        }
+        let previous = windowController.previousApp
+        let written: Bool
+        switch action {
+        case .paste, .pastePlainText:
+            written = Paster.paste(
+                items, store: clipboardStore, previousApp: previous, plainText: action == .pastePlainText)
+        case .copy:
+            written = Paster.copy(items, store: clipboardStore)
+        }
+        guard written else {
+            core.showMessage(
+                String(localized: "Some selected entries are no longer available."), tone: .danger)
+            return
+        }
+        paletteCoordinator.hidePalette(restoreFocus: false)
+        selectClip(first)
+    }
+
+    func pasteKeepingWindowOpen(_ items: [ClipboardItem]) {
+        guard !items.isEmpty else { return }
+        if !Paster.pasteInPlace(items, store: clipboardStore, into: windowController.previousApp) {
+            core.showMessage(
+                String(localized: "Some selected entries are no longer available."), tone: .danger)
+        }
+    }
+
+    func deleteClips(_ items: [ClipboardItem]) {
+        for item in items { clipboardStore.remove(item) }
+        palette.clipboardSelection = ClipboardSelection()
+    }
+
     func paste(_ item: ClipboardItem) {
         let previous = windowController.previousApp
         paletteCoordinator.hidePalette(restoreFocus: false)
@@ -164,6 +210,7 @@ final class ClipboardCoordinator {
 
     /// Reachable with the feature off, so what was kept before can still be erased afterwards.
     func clearHistory() {
+        palette.clipboardSelection = ClipboardSelection()
         clipboardStore.open()
         clipboardStore.clearAll()
         if !settings.clipboardEnabled { clipboardStore.close() }

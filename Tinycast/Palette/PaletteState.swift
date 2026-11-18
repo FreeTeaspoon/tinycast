@@ -10,16 +10,32 @@ struct PaletteFrame: Equatable {
 @MainActor
 @Observable
 final class PaletteState {
-    var mode: PaletteMode = .launcher { didSet { restoredSelection = nil } }
+    var mode: PaletteMode = .launcher {
+        didSet {
+            restoredSelection = nil
+            if oldValue != mode { clipboardSelection = ClipboardSelection() }
+        }
+    }
     /// The screens below `mode`, innermost last: a summon starts a new one, navigating pushes on.
     private(set) var backStack: [PaletteFrame] = []
-    var query: String = "" { didSet { restoredSelection = nil } }
+    var query: String = "" {
+        didSet {
+            restoredSelection = nil
+            if oldValue != query { clipboardSelection = ClipboardSelection() }
+        }
+    }
     @ObservationIgnored private(set) var restoredSelection: Int?
     var selection: Int = 0
+    var clipboardSelection = ClipboardSelection()
     /// True while an IME holds marked text, which leaves `query` empty. The panel publishes it.
     var isComposing = false
     var clipboardFilter: ClipboardFilter = .all {
-        didSet { if oldValue != clipboardFilter { restoredSelection = nil } }
+        didSet {
+            if oldValue != clipboardFilter {
+                restoredSelection = nil
+                clipboardSelection = ClipboardSelection()
+            }
+        }
     }
     var fileSearchFilter: FileSearchFilter = .all
     var emojiCategoryFilter: EmojiCategoryFilter = .all
@@ -80,6 +96,7 @@ final class PaletteState {
 
     func noteVisible(_ visible: Bool) {
         isVisible = visible
+        if !visible { clipboardSelection = ClipboardSelection() }
     }
 
     var canGoBack: Bool { !backStack.isEmpty }
@@ -132,6 +149,7 @@ final class PaletteState {
     }
 
     private func openScreen(_ mode: PaletteMode) {
+        clipboardSelection = ClipboardSelection()
         self.mode = mode
         query = ""
         selection = 0

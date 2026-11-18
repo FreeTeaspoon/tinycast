@@ -129,7 +129,12 @@ enum ClipboardDefaultAction: String, CaseIterable, Identifiable, Sendable {
 
     /// What `chord` runs on `item` with this as the default; nil when it has no text to paste.
     func action(for chord: ClipboardChord, on item: ClipboardItem) -> Self? {
-        let hasPlainText = item.plainText != nil
+        action(for: chord, on: [item])
+    }
+
+    func action(for chord: ClipboardChord, on items: [ClipboardItem]) -> Self? {
+        guard !items.isEmpty else { return nil }
+        let hasPlainText = items.allSatisfy { $0.plainText != nil }
         // An image has no text, so a plain-text default pastes it as it is.
         let resolved: Self = self == .pastePlainText && !hasPlainText ? .paste : self
         let action: Self =

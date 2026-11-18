@@ -15,6 +15,7 @@ struct ClipboardCoordinatorTests {
         await tooLongEditIsRefused()
         await changedScreenKeepsItsSelection()
         await cancelledAndEmptyEditsChangeNothing()
+        batchActionsPreserveOrderAndReportFailure()
         print("\(passes) passed, \(failures) failed")
         if failures > 0 { exit(1) }
     }
@@ -170,6 +171,33 @@ struct ClipboardCoordinatorTests {
             "a screen opened during editing keeps its own query and selection")
     }
 
+    static func batchActionsPreserveOrderAndReportFailure() {
+        let fixture = Fixture()
+        defer { fixture.cleanUp() }
+        let selected = [fixture.store.items[2], fixture.store.items[0]]
+        fixture.coordinator.perform(.copy, on: selected)
+        expect(Paster.batchCopies == selected, "batch copy uses selection order")
+        fixture.coordinator.perform(.paste, on: selected)
+        expect(Paster.batchPastes == selected, "batch paste uses selection order")
+        fixture.coordinator.perform(.pastePlainText, on: selected)
+        expect(Paster.batchPlainText, "plain text reaches the batch writer")
+        let before = fixture.store.items
+        Paster.batchSucceeds = false
+        fixture.coordinator.perform(.paste, on: selected)
+        expect(fixture.core.messages.count == 1, "a failed batch reports missing content")
+        expect(fixture.store.items == before, "a failed batch does not promote any row")
+        fixture.coordinator.pasteKeepingWindowOpen(selected)
+        expect(fixture.core.messages.count == 2, "in-place batch failure is reported too")
+        Paster.batchSucceeds = true
+        fixture.palette.clipboardSelection.select(
+            selected[0].id, in: selected.map(\.id), focusedID: selected[1].id, toggling: true)
+        fixture.coordinator.deleteClips(selected)
+        expect(
+            selected.allSatisfy { item in !fixture.store.items.contains(where: { $0.id == item.id }) },
+            "batch delete removes every selected row")
+        expect(fixture.palette.clipboardSelection.anchor == nil, "batch delete resets selection")
+    }
+
     static func expect(_ condition: Bool, _ message: String) {
         if condition {
             passes += 1
@@ -192,6 +220,7 @@ struct ClipboardCoordinatorTests {
         init(text: String = "draft selected", pinned: Bool = false) {
             Paster.copies = []
             Paster.plainCopies = []
+            Paster.batchSucceeds = true
             store = ClipboardStore(directory: directory)
             store.addText("other pin", sourceBundleID: nil)
             store.togglePinned(store.items[0])
@@ -275,6 +304,10 @@ enum ClipboardTextWorker {
 enum Paster {
     static var copies: [ClipboardItem] = []
     static var plainCopies: [String] = []
+    static var batchCopies: [ClipboardItem] = []
+    static var batchPastes: [ClipboardItem] = []
+    static var batchPlainText = false
+    static var batchSucceeds = true
     @discardableResult
     static func copy(_ item: ClipboardItem, store: ClipboardStore) -> Bool {
         copies.append(item)
@@ -292,4 +325,19 @@ enum Paster {
     static func pasteInPlace(
         _ item: ClipboardItem, store: ClipboardStore, into app: NSRunningApplication?
     ) -> Bool { true }
+    static func paste(
+        _ items: [ClipboardItem], store: ClipboardStore, previousApp: NSRunningApplication?,
+        plainText: Bool = false
+    ) -> Bool {
+        batchPastes = items
+        batchPlainText = plainText
+        return batchSucceeds
+    }
+    static func copy(_ items: [ClipboardItem], store: ClipboardStore) -> Bool {
+        batchCopies = items
+        return batchSucceeds
+    }
+    static func pasteInPlace(
+        _ items: [ClipboardItem], store: ClipboardStore, into app: NSRunningApplication?
+    ) -> Bool { batchSucceeds }
 }
